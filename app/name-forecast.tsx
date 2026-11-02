@@ -43,7 +43,10 @@ export default function NameForecast() {
 
   useEffect(() => {
     const controller = new AbortController();
-    fetch(`/api/names?date=${date}`, { signal: controller.signal })
+    const today = dayjs().format(ISO);
+    fetch(`/api/names?date=${date}&today=${today}`, {
+      signal: controller.signal,
+    })
       .then(async (res) => {
         const body = await res.json();
         setResult(

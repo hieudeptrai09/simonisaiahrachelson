@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import dayjs from "dayjs";
 import { getNameLists, getStormCounts } from "@/lib/hurricanes";
 import {
   BASINS,
@@ -9,7 +10,7 @@ import {
   type NamesResponse,
 } from "@/lib/names";
 
-// GET /api/names?date=YYYY-MM-DD
+// GET /api/names?date=YYYY-MM-DD[&today=YYYY-MM-DD]
 export async function GET(request: NextRequest) {
   const date = request.nextUrl.searchParams.get("date");
   const parsed = parseIsoDate(date);
@@ -20,11 +21,14 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  // Only average over years in which this day has already happened.
-  const today = new Date().toISOString();
-  const thisYear = Number(today.slice(0, 4));
+  // Only average over years in which this day has already happened. "Today"
+  // is the viewer's local date (?today=), so the cutoff moves at their
+  // midnight rather than UTC's; fall back to the server's local date.
+  const today =
+    parseIsoDate(request.nextUrl.searchParams.get("today")) ??
+    parseIsoDate(dayjs().format("YYYY-MM-DD"))!;
   const lastYear =
-    parsed.monthDay <= today.slice(5, 10) ? thisYear : thisYear - 1;
+    parsed.monthDay <= today.monthDay ? today.year : today.year - 1;
 
   const [{ from, to, counts }, lists] = await Promise.all([
     getStormCounts(parsed.monthDay, lastYear),

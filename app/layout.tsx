@@ -8,9 +8,9 @@ const openSans = Open_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Storm name by date",
+  title: "Storm name by date · Simon Isaiah Rachelson",
   description:
-    "Which hurricane names a season typically reaches by a given date.",
+    "Simon Isaiah Rachelson shows which hurricane names a season typically reaches by a given date.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
