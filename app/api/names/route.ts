@@ -1,6 +1,10 @@
 import type { NextRequest } from "next/server";
 import dayjs from "dayjs";
-import { getNameLists, getStormCounts } from "@/lib/hurricanes";
+import {
+  getActiveStorms,
+  getNameLists,
+  getStormCounts,
+} from "@/lib/hurricanes";
 import {
   BASINS,
   lookupName,
@@ -24,15 +28,19 @@ export async function GET(request: NextRequest) {
   // Only average over years in which this day has already happened. "Today"
   // is the viewer's local date (?today=), so the cutoff moves at their
   // midnight rather than UTC's; fall back to the server's local date.
-  const today =
-    parseIsoDate(request.nextUrl.searchParams.get("today")) ??
-    parseIsoDate(dayjs().format("YYYY-MM-DD"))!;
+  const todayParam = request.nextUrl.searchParams.get("today");
+  const todayIso = parseIsoDate(todayParam)
+    ? todayParam!
+    : dayjs().format("YYYY-MM-DD");
+  const today = parseIsoDate(todayIso)!;
   const lastYear =
     parsed.monthDay <= today.monthDay ? today.year : today.year - 1;
 
-  const [{ from, to, counts }, lists] = await Promise.all([
+  // ISO dates compare correctly as strings.
+  const [{ from, to, counts }, lists, active] = await Promise.all([
     getStormCounts(parsed.monthDay, lastYear),
     getNameLists(),
+    date! <= todayIso ? getActiveStorms(date!) : null,
   ]);
 
   const yearCount = to - from + 1;
@@ -55,5 +63,6 @@ export async function GET(request: NextRequest) {
     years: { from, to, count: yearCount },
     average,
     names,
+    active,
   } satisfies NamesResponse);
 }

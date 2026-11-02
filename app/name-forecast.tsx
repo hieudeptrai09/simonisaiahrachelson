@@ -168,6 +168,52 @@ function Results({ data }: { data: NamesResponse }) {
           </Card>
         ))}
       </div>
+
+      {data.active && <ActiveStorms date={data.date} active={data.active} />}
+    </Flex>
+  );
+}
+
+function ActiveStorms({
+  date,
+  active,
+}: {
+  date: string;
+  active: NonNullable<NamesResponse["active"]>;
+}) {
+  const range = (start: string, end: string) =>
+    `${dayjs(start, ISO).format("D MMM")} – ${dayjs(end, ISO).format("D MMM")}`;
+
+  return (
+    <Flex vertical gap={16}>
+      <Title level={4} style={{ margin: "16px 0 0" }}>
+        Active on {dayjs(date, ISO).format("D MMM YYYY")}
+      </Title>
+      <div className="grid gap-4 sm:grid-cols-2">
+        {BASINS.map((basin) => (
+          <Card key={basin} title={`${BASIN_LABELS[basin]} (${basin})`}>
+            {active[basin].length === 0 ? (
+              <Text type="secondary">No named storms active</Text>
+            ) : (
+              <Flex vertical gap={12}>
+                {active[basin].map((storm) => (
+                  <Flex
+                    key={storm.name}
+                    justify="space-between"
+                    align="center"
+                    gap={12}
+                  >
+                    <Text strong style={{ fontSize: 18 }}>
+                      {storm.name}
+                    </Text>
+                    <Text type="secondary">{range(storm.start, storm.end)}</Text>
+                  </Flex>
+                ))}
+              </Flex>
+            )}
+          </Card>
+        ))}
+      </div>
     </Flex>
   );
 }

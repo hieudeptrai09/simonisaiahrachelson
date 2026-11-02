@@ -1,6 +1,13 @@
 import { cacheLife } from "next/cache";
 import { sql } from "./db";
-import { BASINS, FIRST_YEAR, type Basin, type NameLists } from "./names";
+import {
+  BASINS,
+  FIRST_YEAR,
+  titleCase,
+  type ActiveStorm,
+  type Basin,
+  type NameLists,
+} from "./names";
 
 /**
  * Storms per basin with a tropical-storm date between 1 Jan and monthDay
@@ -36,6 +43,31 @@ export async function getStormCounts(monthDay: string, lastYear: number) {
   for (const row of rows) if (row.basin) counts[row.basin] = row.storms;
 
   return { from: rows[0].first_year, to: rows[0].last_year, counts };
+}
+
+/**
+ * Storms per basin at tropical-storm strength on `date` (YYYY-MM-DD), i.e.
+ * ts_date <= date <= end_date, in order of formation.
+ */
+export async function getActiveStorms(
+  date: string,
+): Promise<Record<Basin, ActiveStorm[]>> {
+  "use cache";
+  cacheLife("hours");
+
+  const rows = await sql<(ActiveStorm & { basin: Basin })[]>`
+    select basin, year, name,
+           to_char(ts_date, 'YYYY-MM-DD') as start,
+           to_char(end_date, 'YYYY-MM-DD') as "end"
+    from catfisha_typhoons.hurricanes
+    where ts_date <= ${date}::date and end_date >= ${date}::date
+    order by ts_date, id
+  `;
+
+  const active = { E: [], L: [] } as Record<Basin, ActiveStorm[]>;
+  for (const { basin, ...storm } of rows)
+    active[basin].push({ ...storm, name: titleCase(storm.name) });
+  return active;
 }
 
 export async function getNameLists(): Promise<NameLists> {

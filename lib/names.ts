@@ -83,10 +83,29 @@ export function parseIsoDate(value: string | null) {
   return { year, monthDay: `${match[2]}-${match[3]}` };
 }
 
+/** "TWENTY-TWO" → "Twenty-Two"; the hurricanes table mixes upper and title case. */
+export function titleCase(name: string): string {
+  return name.toLowerCase().replace(/(^|[^a-z])([a-z])/g, (_, sep, ch) =>
+    sep + ch.toUpperCase(),
+  );
+}
+
+/** A storm that was at tropical-storm strength on a given date. */
+export type ActiveStorm = {
+  year: number;
+  name: string;
+  /** YYYY-MM-DD */
+  start: string;
+  /** YYYY-MM-DD */
+  end: string;
+};
+
 export type NamesResponse = {
   date: string;
   set: number;
   years: { from: number; to: number; count: number };
   average: Record<Basin, number>;
   names: Record<Basin, { position: number; hit: NameHit | null }[]>;
+  /** Storms active on `date`, or null when the date is after today. */
+  active: Record<Basin, ActiveStorm[]> | null;
 };
