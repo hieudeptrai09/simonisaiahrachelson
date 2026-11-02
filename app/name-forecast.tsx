@@ -22,6 +22,7 @@ import {
   parseIsoDate,
   type NamesResponse,
 } from "@/lib/names";
+import SeasonCurveLink from "./season-chart";
 
 const { Text, Title } = Typography;
 const ISO = "YYYY-MM-DD";
@@ -135,7 +136,7 @@ function Results({ data }: { data: NamesResponse }) {
         seasons), by {day} the Eastern Pacific has had{" "}
         <Text strong>{data.average.E.toFixed(2)}</Text> named storms and the
         Atlantic <Text strong>{data.average.L.toFixed(2)}</Text>. Names come
-        from set {data.set} ({year} mod 6).
+        from set {data.set} ({year} mod 6). <SeasonCurveLink date={data.date} />
       </Text>
 
       <div className="grid gap-4 sm:grid-cols-2">

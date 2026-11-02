@@ -109,3 +109,14 @@ export type NamesResponse = {
   /** Storms active on `date`, or null when the date is after today. */
   active: Record<Basin, ActiveStorm[]> | null;
 };
+
+/** "MM-DD" for every day of a leap year, 1 Jan to 31 Dec. */
+export const SEASON_DAYS = Array.from({ length: 366 }, (_, i) =>
+  new Date(Date.UTC(2024, 0, 1 + i)).toISOString().slice(5, 10),
+);
+
+export type SeasonResponse = {
+  years: { from: number; to: number };
+  /** Average named storms formed by each day, in SEASON_DAYS order. */
+  average: Record<Basin, number[]>;
+};

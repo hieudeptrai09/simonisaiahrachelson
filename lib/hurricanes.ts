@@ -89,3 +89,28 @@ export async function getNameLists(): Promise<NameLists> {
   for (const row of rows) lists[row.basin][row.set].push(row.name);
   return lists;
 }
+
+/**
+ * Storms per season, basin and tropical-storm day ("MM-DD") from FIRST_YEAR
+ * on, plus the latest season in the table.
+ */
+export async function getDailyStormCounts() {
+  "use cache";
+  cacheLife("hours");
+
+  const rows = await sql<
+    { year: number; basin: Basin; month_day: string; storms: number }[]
+  >`
+    select year, basin, to_char(ts_date, 'MM-DD') as month_day,
+           count(*)::int as storms
+    from catfisha_typhoons.hurricanes
+    where year >= ${FIRST_YEAR}
+    group by year, basin, month_day
+  `;
+
+  const maxYear = rows.reduce(
+    (max, row) => Math.max(max, row.year),
+    FIRST_YEAR,
+  );
+  return { maxYear, rows: [...rows] };
+}
