@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import dayjs from "dayjs";
 import {
   getActiveStorms,
+  getLastFormedStorms,
   getNameLists,
   getStormCounts,
 } from "@/lib/hurricanes";
@@ -37,10 +38,12 @@ export async function GET(request: NextRequest) {
     parsed.monthDay <= today.monthDay ? today.year : today.year - 1;
 
   // ISO dates compare correctly as strings.
-  const [{ from, to, counts }, lists, active] = await Promise.all([
+  const isPast = date! <= todayIso;
+  const [{ from, to, counts }, lists, active, lastFormed] = await Promise.all([
     getStormCounts(parsed.monthDay, lastYear),
     getNameLists(),
-    date! <= todayIso ? getActiveStorms(date!) : null,
+    isPast ? getActiveStorms(date!) : null,
+    isPast ? getLastFormedStorms(date!) : null,
   ]);
 
   const yearCount = to - from + 1;
@@ -64,5 +67,6 @@ export async function GET(request: NextRequest) {
     average,
     names,
     active,
+    lastFormed,
   } satisfies NamesResponse);
 }

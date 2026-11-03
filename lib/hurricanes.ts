@@ -70,6 +70,32 @@ export async function getActiveStorms(
   return active;
 }
 
+/**
+ * The most recently formed storm per basin in `date`'s season, i.e. the latest
+ * ts_date between 1 Jan and `date` (YYYY-MM-DD); null if none formed yet.
+ */
+export async function getLastFormedStorms(
+  date: string,
+): Promise<Record<Basin, ActiveStorm | null>> {
+  "use cache";
+  cacheLife("hours");
+
+  const rows = await sql<(ActiveStorm & { basin: Basin })[]>`
+    select distinct on (basin) basin, year, name,
+           to_char(ts_date, 'YYYY-MM-DD') as start,
+           to_char(end_date, 'YYYY-MM-DD') as "end"
+    from catfisha_typhoons.hurricanes
+    where year = extract(year from ${date}::date)
+      and ts_date <= ${date}::date
+    order by basin, ts_date desc, id desc
+  `;
+
+  const last = { E: null, L: null } as Record<Basin, ActiveStorm | null>;
+  for (const { basin, ...storm } of rows)
+    last[basin] = { ...storm, name: titleCase(storm.name) };
+  return last;
+}
+
 export async function getNameLists(): Promise<NameLists> {
   "use cache";
   cacheLife("hours");

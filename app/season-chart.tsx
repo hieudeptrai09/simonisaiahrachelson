@@ -12,11 +12,13 @@ import {
   Alert,
   Flex,
   Modal,
+  Popover,
   Segmented,
   Skeleton,
   Table,
   Typography,
 } from "antd";
+import { CalendarDays, ChartLine } from "lucide-react";
 import {
   BASINS,
   BASIN_LABELS,
@@ -92,7 +94,9 @@ export default function SeasonCurveLink({ date }: { date: string }) {
 }
 
 function Season({ data, date }: { data: SeasonResponse; date: string }) {
-  const [view, setView] = useState<"Chart" | "Table">("Chart");
+  const [view, setView] = useState<
+    "Chart" | "Table (Date)" | "Table (Name)" | "Calendar"
+  >("Chart");
   const partial = data.years.to === dayjs().year();
 
   return (
@@ -105,15 +109,34 @@ function Season({ data, date }: { data: SeasonResponse; date: string }) {
       <Flex justify="space-between" align="center" gap={12} wrap>
         <Legend />
         <Segmented
-          options={["Chart", "Table"]}
+          options={[
+            {
+              value: "Chart",
+              title: "Chart",
+              icon: <ChartLine size={16} style={{ verticalAlign: "middle" }} />,
+            },
+            "Table (Date)",
+            "Table (Name)",
+            {
+              value: "Calendar",
+              title: "Calendar",
+              icon: (
+                <CalendarDays size={16} style={{ verticalAlign: "middle" }} />
+              ),
+            },
+          ]}
           value={view}
           onChange={setView}
         />
       </Flex>
       {view === "Chart" ? (
         <LineChart average={data.average} marked={date.slice(5)} />
-      ) : (
+      ) : view === "Table (Date)" ? (
         <MonthTable average={data.average} />
+      ) : view === "Table (Name)" ? (
+        <NameTable average={data.average} />
+      ) : (
+        <NameCalendar average={data.average} date={date} />
       )}
     </Flex>
   );
@@ -165,6 +188,16 @@ function LineChart({
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
+  // A tapped reading stays until the next tap outside the chart.
+  useEffect(() => {
+    if (hover === null) return;
+    const close = (event: globalThis.PointerEvent) => {
+      if (!wrapRef.current?.contains(event.target as Node)) setHover(null);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [hover]);
 
   const last = SEASON_DAYS.length - 1;
   const plotW = Math.max(0, width - MARGIN.left - MARGIN.right);
@@ -342,9 +375,14 @@ function LineChart({
             width={plotW}
             height={plotH}
             fill="transparent"
-            onPointerMove={(event) => setHover(indexAt(event))}
+            // Mouse reads on hover; touch reads on tap, so a swipe still scrolls.
+            onPointerMove={(event) => {
+              if (event.pointerType === "mouse") setHover(indexAt(event));
+            }}
             onPointerDown={(event) => setHover(indexAt(event))}
-            onPointerLeave={() => setHover(null)}
+            onPointerLeave={(event) => {
+              if (event.pointerType === "mouse") setHover(null);
+            }}
           />
         </svg>
       )}
@@ -430,5 +468,237 @@ function MonthTable({ average }: { average: SeasonResponse["average"] }) {
         })),
       ]}
     />
+  );
+}
+
+/** Name initials by position; every list runs A–Z without Q and U. */
+const LETTERS = "ABCDEFGHIJKLMNOPRSTVWXYZ";
+const letter = (position: number) => LETTERS[position - 1] ?? `#${position}`;
+
+/** First SEASON_DAYS index on which a basin's average reaches `value`, or null. */
+function firstReaching(
+  average: SeasonResponse["average"],
+  basin: Basin,
+  value: number,
+) {
+  const i = average[basin].findIndex((v) => v >= value);
+  return i < 0 ? null : i;
+}
+
+/**
+ * When each name is the expected one: name #n runs from the first day the
+ * average reaches n − 1 to the first day it reaches n (or 31 Dec).
+ */
+function NameTable({ average }: { average: SeasonResponse["average"] }) {
+  const last = SEASON_DAYS.length - 1;
+  const span = (basin: Basin, position: number) => {
+    const from = firstReaching(average, basin, position - 1);
+    if (from === null) return null;
+    const to = firstReaching(average, basin, position) ?? last;
+    return `${dayLabel(SEASON_DAYS[from])} – ${dayLabel(SEASON_DAYS[to])}`;
+  };
+
+  // Every name whose start the average reaches by 31 Dec.
+  const count = Math.max(
+    ...BASINS.map((basin) => Math.floor(average[basin][last]) + 1),
+  );
+  const rows = Array.from({ length: count }, (_, i) => ({
+    key: i + 1,
+    position: i + 1,
+  }));
+
+  return (
+    <Table
+      size="small"
+      pagination={false}
+      dataSource={rows}
+      columns={[
+        {
+          title: "Name",
+          dataIndex: "position",
+          render: (position: number) => <Text strong>{letter(position)}</Text>,
+        },
+        ...BASINS.map((basin) => ({
+          title: BASIN_LABELS[basin],
+          key: basin,
+          render: (_: unknown, row: (typeof rows)[number]) => {
+            const dates = span(basin, row.position);
+            return (
+              <Text
+                type={dates ? undefined : "secondary"}
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
+                {dates ?? "—"}
+              </Text>
+            );
+          },
+        })),
+      ]}
+    />
+  );
+}
+
+// Alternate stretches are told apart by a light and a mid tint of the first
+// series hue; the stretch of the open day turns a light red.
+const STRETCH_TINTS = ["#e3edf9", "#b9d2f0"];
+const ACTIVE_TINT = "#f5bdb6";
+const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
+
+/** Name position per SEASON_DAYS index, as the table counts it. */
+function positionsByDay(average: SeasonResponse["average"], basin: Basin) {
+  const positions = SEASON_DAYS.map(() => 1);
+  for (let n = 2; ; n++) {
+    const from = firstReaching(average, basin, n - 1);
+    if (from === null) return positions;
+    positions.fill(n, from);
+  }
+}
+
+/**
+ * `date`'s year laid out as a calendar, shaded in stretches over which
+ * neither basin's expected name changes. Hovering or tapping a day pops up its
+ * stretch's dates (ending on the day the next one starts, like the table) and
+ * letters.
+ */
+function NameCalendar({
+  average,
+  date,
+}: {
+  average: SeasonResponse["average"];
+  date: string;
+}) {
+  const year = Number(date.slice(0, 4));
+  const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+  const days = SEASON_DAYS.flatMap((day, i) =>
+    leap || day !== "02-29" ? [i] : [],
+  );
+
+  const positions = Object.fromEntries(
+    BASINS.map((basin) => [basin, positionsByDay(average, basin)]),
+  ) as Record<Basin, number[]>;
+  const stretches: { start: number; positions: Record<Basin, number> }[] = [];
+  const stretchOf = new Map<number, number>();
+  for (const i of days) {
+    const prev = stretches.at(-1);
+    if (!prev || BASINS.some((b) => prev.positions[b] !== positions[b][i]))
+      stretches.push({
+        start: i,
+        positions: Object.fromEntries(
+          BASINS.map((b) => [b, positions[b][i]]),
+        ) as Record<Basin, number>,
+      });
+    stretchOf.set(i, stretches.length - 1);
+  }
+
+  const markedIndex = SEASON_DAYS.indexOf(date.slice(5));
+  const range = (stretch: number) =>
+    `${dayLabel(SEASON_DAYS[stretches[stretch].start])} – ${dayLabel(
+      SEASON_DAYS[stretches[stretch + 1]?.start ?? days.at(-1)!],
+    )}`;
+
+  // Mouse opens on hover; touch opens on tap and closes on a tap elsewhere.
+  const [openDay, setOpenDay] = useState<number | null>(null);
+  const activeStretch = openDay === null ? null : stretchOf.get(openDay);
+  useEffect(() => {
+    if (openDay === null) return;
+    const close = (event: globalThis.PointerEvent) => {
+      if (!(event.target as Element).closest("[data-day]")) setOpenDay(null);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [openDay]);
+
+  return (
+    <div
+      className="grid gap-x-6 gap-y-4"
+      style={{ gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}
+    >
+      {Array.from({ length: 12 }, (_, month) => {
+        const first = dayjs(new Date(year, month, 1));
+        // Monday-first offset of the 1st.
+        const blanks = (first.day() + 6) % 7;
+        return (
+          <Flex key={month} vertical gap={4}>
+            <Text strong>{first.format("MMMM")}</Text>
+            <div
+              className="grid"
+              style={{ gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}
+            >
+              {WEEKDAYS.map((weekday, i) => (
+                <Text
+                  key={i}
+                  type="secondary"
+                  style={{ fontSize: 11, textAlign: "center" }}
+                >
+                  {weekday}
+                </Text>
+              ))}
+              {Array.from({ length: blanks }, (_, i) => (
+                <span key={`blank-${i}`} />
+              ))}
+              {Array.from({ length: first.daysInMonth() }, (_, d) => {
+                const i = SEASON_DAYS.indexOf(
+                  first.date(d + 1).format("MM-DD"),
+                );
+                const stretch = stretchOf.get(i)!;
+                const letters = BASINS.map(
+                  (b) => `${BASIN_LABELS[b]} ${letter(positions[b][i])}`,
+                ).join(", ");
+                return (
+                  <Popover
+                    key={d}
+                    open={openDay === i}
+                    trigger={[]}
+                    title={range(stretch)}
+                    content={
+                      <Flex vertical gap={4}>
+                        {BASINS.map((basin) => (
+                          <Flex key={basin} gap={6} align="center">
+                            <LineKey basin={basin} />
+                            <Text type="secondary">{BASIN_LABELS[basin]}</Text>
+                            <Text strong>{letter(positions[basin][i])}</Text>
+                          </Flex>
+                        ))}
+                      </Flex>
+                    }
+                  >
+                    <div
+                      data-day
+                      aria-label={`${dayLabel(SEASON_DAYS[i])}: ${letters}`}
+                      onPointerEnter={(event) => {
+                        if (event.pointerType === "mouse") setOpenDay(i);
+                      }}
+                      onPointerLeave={(event) => {
+                        if (event.pointerType === "mouse") setOpenDay(null);
+                      }}
+                      onClick={() => setOpenDay(i)}
+                      style={{
+                        cursor: "pointer",
+                        textAlign: "center",
+                        fontSize: 12,
+                        lineHeight: "24px",
+                        borderRadius: 4,
+                        fontVariantNumeric: "tabular-nums",
+                        color: SECONDARY,
+                        background:
+                          stretch === activeStretch
+                            ? ACTIVE_TINT
+                            : STRETCH_TINTS[stretch % 2],
+                        boxShadow:
+                          i === markedIndex
+                            ? `inset 0 0 0 1.5px ${SECONDARY}`
+                            : undefined,
+                      }}
+                    >
+                      {d + 1}
+                    </div>
+                  </Popover>
+                );
+              })}
+            </div>
+          </Flex>
+        );
+      })}
+    </div>
   );
 }

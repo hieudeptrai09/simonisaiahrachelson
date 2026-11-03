@@ -170,7 +170,13 @@ function Results({ data }: { data: NamesResponse }) {
         ))}
       </div>
 
-      {data.active && <ActiveStorms date={data.date} active={data.active} />}
+      {data.active && (
+        <ActiveStorms
+          date={data.date}
+          active={data.active}
+          lastFormed={data.lastFormed}
+        />
+      )}
     </Flex>
   );
 }
@@ -178,9 +184,11 @@ function Results({ data }: { data: NamesResponse }) {
 function ActiveStorms({
   date,
   active,
+  lastFormed,
 }: {
   date: string;
   active: NonNullable<NamesResponse["active"]>;
+  lastFormed: NamesResponse["lastFormed"];
 }) {
   const range = (start: string, end: string) =>
     `${dayjs(start, ISO).format("D MMM")} – ${dayjs(end, ISO).format("D MMM")}`;
@@ -194,7 +202,22 @@ function ActiveStorms({
         {BASINS.map((basin) => (
           <Card key={basin} title={`${BASIN_LABELS[basin]} (${basin})`}>
             {active[basin].length === 0 ? (
-              <Text type="secondary">No named storms active</Text>
+              <Flex vertical gap={12}>
+                <Text type="secondary">No named storms active</Text>
+                {lastFormed?.[basin] && (
+                  <Flex vertical gap={4}>
+                    <Text type="secondary">Last formed</Text>
+                    <Flex justify="space-between" align="center" gap={12}>
+                      <Text strong style={{ fontSize: 18 }}>
+                        {lastFormed[basin].name}
+                      </Text>
+                      <Text type="secondary">
+                        {range(lastFormed[basin].start, lastFormed[basin].end)}
+                      </Text>
+                    </Flex>
+                  </Flex>
+                )}
+              </Flex>
             ) : (
               <Flex vertical gap={12}>
                 {active[basin].map((storm) => (

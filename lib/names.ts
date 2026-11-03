@@ -30,15 +30,11 @@ export function setForYear(year: number): number {
 }
 
 /**
- * Positions to show in one basin for its average count: floor and ceiling,
- * deduplicated when the average is whole. Paired across basins this gives the
- * floor case (floor E, floor L) and the ceiling case (ceil E, ceil L). With no
+ * Positions to show in one basin for its average count: the ceiling. With no
  * storms yet, the first name is shown.
  */
 export function namePositions(avg: number): number[] {
-  const low = Math.max(1, Math.floor(avg));
-  const high = Math.max(1, Math.ceil(avg));
-  return low === high ? [low] : [low, high];
+  return [Math.max(1, Math.ceil(avg))];
 }
 
 /**
@@ -108,6 +104,11 @@ export type NamesResponse = {
   names: Record<Basin, { position: number; hit: NameHit | null }[]>;
   /** Storms active on `date`, or null when the date is after today. */
   active: Record<Basin, ActiveStorm[]> | null;
+  /**
+   * Latest storm formed in `date`'s season up to `date`, per basin (null if
+   * none yet), or null when the date is after today.
+   */
+  lastFormed: Record<Basin, ActiveStorm | null> | null;
 };
 
 /** "MM-DD" for every day of a leap year, 1 Jan to 31 Dec. */
