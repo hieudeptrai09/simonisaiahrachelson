@@ -1,13 +1,8 @@
 import { cacheLife } from "next/cache";
 import { sql } from "./db";
-import {
-  BASINS,
-  FIRST_YEAR,
-  titleCase,
-  type ActiveStorm,
-  type Basin,
-  type NameLists,
-} from "./names";
+import { FIRST_YEAR, perBasin, type Basin } from "./basins";
+import { titleCase } from "./format";
+import type { ActiveStorm, NameLists } from "./types";
 
 /**
  * Storms per basin with a tropical-storm date between 1 Jan and monthDay
@@ -106,12 +101,9 @@ export async function getNameLists(): Promise<NameLists> {
     order by basin, set, seq
   `;
 
-  const lists = Object.fromEntries(
-    BASINS.map((basin) => [
-      basin,
-      Array.from({ length: 7 }, () => [] as string[]),
-    ]),
-  ) as NameLists;
+  const lists: NameLists = perBasin(() =>
+    Array.from({ length: 7 }, () => [] as string[]),
+  );
   for (const row of rows) lists[row.basin][row.set].push(row.name);
   return lists;
 }
