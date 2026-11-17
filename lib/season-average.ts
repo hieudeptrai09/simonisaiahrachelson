@@ -18,7 +18,7 @@ export function seasonAverage(
   rows: DailyCount[],
   maxYear: number,
   today: Pick<Today, "year" | "monthDay">,
-): SeasonResponse {
+): Omit<SeasonResponse, "bounds"> {
   // Every day's window ends in `latest` or the season before it, so tally
   // `latest` apart and add it only on the days that include it.
   const latest = Math.min(maxYear, today.year);

@@ -132,3 +132,36 @@ export async function getDailyStormCounts() {
   );
   return { maxYear, rows: [...rows] };
 }
+
+/**
+ * Per season and basin from FIRST_YEAR on: the first tropical-storm day and
+ * the last day any storm was still at that strength ("MM-DD"), plus how many
+ * years after the season that last day falls (a December storm can run into
+ * January). `ended` is false while any storm has no end_date yet.
+ */
+export async function getSeasonExtents() {
+  "use cache";
+  cacheLife("hours");
+
+  const rows = await sql<
+    {
+      year: number;
+      basin: Basin;
+      first_day: string;
+      last_day: string | null;
+      years_on: number | null;
+      ended: boolean;
+    }[]
+  >`
+    select year, basin,
+           to_char(min(ts_date), 'MM-DD') as first_day,
+           to_char(max(end_date), 'MM-DD') as last_day,
+           (extract(year from max(end_date)) - year)::int as years_on,
+           bool_and(end_date is not null) as ended
+    from catfisha_typhoons.hurricanes
+    where year >= ${FIRST_YEAR}
+    group by year, basin
+  `;
+
+  return [...rows];
+}

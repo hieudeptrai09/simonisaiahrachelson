@@ -3,7 +3,7 @@ import { useElementWidth } from "@/hooks/use-element-width";
 import { useOutsidePointer } from "@/hooks/use-outside-pointer";
 import { HEIGHT, chartScale } from "@/lib/chart-scale";
 import { LAST_DAY, SEASON_DAYS } from "@/lib/dates";
-import type { SeasonAverage } from "@/lib/types";
+import type { SeasonAverage, SeasonBounds } from "@/lib/types";
 import ChartTooltip from "./chart-tooltip";
 import Crosshair from "./crosshair";
 import DateMarker from "./date-marker";
@@ -11,6 +11,7 @@ import EndLabels from "./end-labels";
 import GridAndYAxis from "./grid-and-y-axis";
 import HitArea from "./hit-area";
 import MonthAxis from "./month-axis";
+import { SeasonLabels, SeasonRules } from "./season-markers";
 import SeriesLines from "./series-lines";
 
 const KEY_MOVES: Record<string, number> = {
@@ -22,13 +23,16 @@ const KEY_MOVES: Record<string, number> = {
 
 /**
  * Both basins' average curves through the year, with `marked` ("MM-DD")
- * flagged. Hover, tap or the arrow keys read off a day's values.
+ * flagged and each basin's average season start and end dashed in its colour.
+ * Hover, tap or the arrow keys read off a day's values.
  */
 export default function LineChart({
   average,
+  bounds,
   marked,
 }: {
   average: SeasonAverage;
+  bounds: SeasonBounds;
   marked: string;
 }) {
   const [wrapRef, width] = useElementWidth<HTMLDivElement>();
@@ -58,7 +62,7 @@ export default function LineChart({
           width={width}
           height={HEIGHT}
           role="img"
-          aria-label="Line chart of average named storms by date for the Eastern Pacific and Atlantic. Use the arrow keys to read values."
+          aria-label="Line chart of average named storms by date for the Eastern Pacific and Atlantic, with dashed lines at each basin's average season start and end. Use the arrow keys to read values."
           tabIndex={0}
           onKeyDown={handleKey}
           onBlur={() => setHover(null)}
@@ -66,8 +70,10 @@ export default function LineChart({
         >
           <GridAndYAxis scale={scale} />
           <MonthAxis scale={scale} />
+          <SeasonRules scale={scale} bounds={bounds} />
           {markedIndex >= 0 && <DateMarker scale={scale} index={markedIndex} />}
           <SeriesLines scale={scale} average={average} />
+          <SeasonLabels scale={scale} bounds={bounds} />
           {hover === null ? (
             <EndLabels scale={scale} average={average} />
           ) : (

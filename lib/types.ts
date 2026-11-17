@@ -42,7 +42,25 @@ export type SeasonResponse = {
   years: { from: number; to: number };
   /** Average named storms formed by each day, in SEASON_DAYS order. */
   average: SeasonAverage;
+  bounds: SeasonBounds;
 };
+
+/** A basin's average season, as SEASON_DAYS indexes. */
+export type SeasonBound = { start: number; end: number };
+
+/**
+ * Average season start and end per basin: the end over finished seasons, the
+ * start also over today's once its first storm has formed.
+ */
+export type SeasonBounds = {
+  /** First season averaged, and the last one counted toward each edge. */
+  years: { from: number; start: number; end: number };
+  /** Null if the basin has no finished season to average. */
+  basins: Record<Basin, SeasonBound | null>;
+};
+
+/** One end of a basin's average season, as marked on a day. */
+export type SeasonEdge = { basin: Basin; edge: "start" | "end" };
 
 /** Average named storms formed by each day per basin, in SEASON_DAYS order. */
 export type SeasonAverage = Record<Basin, number[]>;
