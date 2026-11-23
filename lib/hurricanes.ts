@@ -2,7 +2,7 @@ import { cacheLife } from "next/cache";
 import { sql } from "./db";
 import { FIRST_YEAR, perBasin, type Basin } from "./basins";
 import { titleCase } from "./format";
-import type { ActiveStorm, NameLists } from "./types";
+import type { ActiveStorm, NameLists, StormStart } from "./types";
 
 /**
  * Storms per basin with a tropical-storm date between 1 Jan and monthDay
@@ -164,4 +164,19 @@ export async function getSeasonExtents() {
   `;
 
   return [...rows];
+}
+
+/** Every named storm from season `from` on, with its tropical-storm day. */
+export async function getStormStarts(from: number) {
+  "use cache";
+  cacheLife("hours");
+
+  const rows = await sql<(StormStart & { basin: Basin })[]>`
+    select basin, year, name, to_char(ts_date, 'YYYY-MM-DD') as start
+    from catfisha_typhoons.hurricanes
+    where year >= ${from}
+    order by ts_date, id
+  `;
+
+  return rows.map((row) => ({ ...row, name: titleCase(row.name) }));
 }

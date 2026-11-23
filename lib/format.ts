@@ -11,3 +11,7 @@ const LETTERS = "ABCDEFGHIJKLMNOPRSTVWXYZ";
 /** Initial of the name at a 1-based position, or "#n" past Z. */
 export const letter = (position: number) =>
   LETTERS[position - 1] ?? `#${position}`;
+
+/** 1-based list position a name's initial stands for, or 0 for Q and U. */
+export const positionOf = (name: string) =>
+  LETTERS.indexOf(name.charAt(0).toUpperCase()) + 1;

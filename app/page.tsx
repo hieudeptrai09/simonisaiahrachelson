@@ -1,3 +1,4 @@
+import Link from "next/link";
 import NameForecast from "@/components/forecast/name-forecast";
 import Providers from "./providers";
 
@@ -10,7 +11,10 @@ export default function Home() {
       <p className="mt-2 mb-8 text-zinc-600">
         Hello, I&apos;m <b>Simon Isaiah Rachelson</b>, but Simon&apos;s fine.
         Pick a date and I&apos;ll show you which names the season has usually
-        reached by then.
+        reached by then.{" "}
+        <Link href="/history" className="text-zinc-900 underline">
+          Start dates by name or year
+        </Link>
       </p>
       <Providers>
         <NameForecast />
